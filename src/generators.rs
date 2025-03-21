@@ -29,7 +29,6 @@ use std::io::Write;
 use std::io::{self, Seek, SeekFrom};
 use std::net::{TcpListener, TcpStream, UdpSocket};
 use std::path::Path;
-use std::path::PathBuf;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -778,6 +777,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use std::thread;
+    use std::path::PathBuf;
 
     fn filestream() -> PathBuf {
         let base_path = Path::new(".");
@@ -843,6 +843,7 @@ mod tests {
                 &crate::output::OutputType::TCPClient,
                 Some("127.0.0.1:34254".to_string()),
                 &None,
+                0,
             )
             .unwrap();
             fd.gen_write(&[144], 0).ok();

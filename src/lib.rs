@@ -219,7 +219,7 @@ impl Radamsa {
             .unwrap();
 
         if !self.checksums.use_hashmap {
-            _out_len = self.outputs.mux_output(&mut_data, &mut buffer)?;
+            _out_len = self.outputs.mux_output(&mut_data, &mut buffer, n)?;
         } else {
             loop {
                 let cs_exists = match self.checksums.digest_data(&mut_data) {
@@ -230,7 +230,7 @@ impl Radamsa {
                     if p >= crate::shared::MAX_CHECKSUM_RETRY {
                         error!("max unique reached");
                         // Make sure to return something
-                        _out_len = self.outputs.mux_output(&mut_data, &mut buffer)?;
+                        _out_len = self.outputs.mux_output(&mut_data, &mut buffer, n)?;
                         break;
                     }
                     // Try again
@@ -247,11 +247,11 @@ impl Radamsa {
                     continue;
                 } else {
                     // Successful unique value
-                    _out_len = self.outputs.mux_output(&mut_data, &mut buffer)?;
+                    _out_len = self.outputs.mux_output(&mut_data, &mut buffer, n)?;
                     p = 0;
                     if n < 1 {
                         break;
-                    } else if n < self.count {
+                    } else if n < self.count as u64 {
                         n += 1;
                     } else {
                         break;
@@ -617,6 +617,7 @@ mod tests {
                 &crate::output::OutputType::TCPClient,
                 Some("127.0.0.1:8000".to_string()),
                 &None,
+                0,
             )
             .unwrap();
             let len = fd.gen_write(&[3u8; 20], 0);

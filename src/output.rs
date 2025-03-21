@@ -60,19 +60,19 @@ impl Outputs {
                 if 0 < paths.len() {
                     for p in paths {
                         let mut new_output = output.clone();
-                        if new_output.set_fd(Some(p.clone()), &None).is_ok() {
+                        if new_output.set_fd(Some(p.clone()), &None, 0).is_ok() {
                             new_outputs.push(new_output);
                         }
                     }
                 } else {
                     let mut new_output = output.clone();
-                    if new_output.set_fd(None, &None).is_ok() {
+                    if new_output.set_fd(None, &None, 0).is_ok() {
                         new_outputs.push(new_output);
                     }
                 }
             } else {
                 let mut new_output = output.clone();
-                if new_output.set_fd(None, _buffer).is_ok() {
+                if new_output.set_fd(None, _buffer, 0).is_ok() {
                     new_outputs.push(new_output);
                 }
             }
@@ -84,6 +84,7 @@ impl Outputs {
         &mut self,
         _data: &Vec<u8>,
         _buffer: &mut Option<&mut Box<[u8]>>,
+        _test_case_number: u64,
     ) -> Result<usize, Box<dyn std::error::Error>> {
         debug!("mux output");
         let data: Vec<u8> = match self.truncate {
@@ -98,6 +99,18 @@ impl Outputs {
         };
         for output in &mut self.outputs {
             debug!("writing to {}", output.id);
+            if output.fd_type == OutputType::Hashing && output.test_case_number != _test_case_number
+            {
+                output.set_fd(
+                    output
+                        .paths
+                        .as_ref()
+                        .map(|ps| ps.first().cloned())
+                        .flatten(),
+                    &None,
+                    _test_case_number,
+                )?;
+            }
             output.write(&data)?;
             if output.fd_type == OutputType::Buffer {
                 if let Some(ref mut buf) = _buffer.as_mut() {
@@ -137,6 +150,7 @@ pub struct Output {
     pub fd_type: OutputType,
     pub fd: Option<Box<dyn GenericReader>>,
     pub paths: Option<Vec<String>>,
+    pub test_case_number: u64,
 }
 
 impl Clone for Output {
@@ -147,6 +161,7 @@ impl Clone for Output {
             fd_type: self.fd_type,
             fd: None,
             paths: self.paths.clone(),
+            test_case_number: 0,
         }
     }
 }
@@ -170,15 +185,17 @@ impl Output {
             fd_type: _type,
             fd: None,
             paths: None,
+            test_case_number: 0,
         }
     }
     pub fn set_fd(
         &mut self,
         _path: Option<String>,
         _buf: &Option<&mut Box<[u8]>>,
+        _test_case_number: u64,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // initialize the fd
-        let fd = get_fd(&self.fd_type, _path, _buf)?;
+        let fd = get_fd(&self.fd_type, _path, _buf, _test_case_number)?;
         self.fd = Some(fd);
         Ok(())
     }
@@ -271,6 +288,7 @@ pub fn get_fd(
     _type: &OutputType,
     _path: Option<String>,
     _buf: &Option<&mut Box<[u8]>>,
+    _test_case_number: u64,
 ) -> Result<Box<dyn GenericReader>, Box<dyn std::error::Error>> {
     match *_type {
         OutputType::Stdout => Ok(Box::new(io::Stdout::gen_open("w", None, None)?)),
@@ -287,7 +305,11 @@ pub fn get_fd(
                 Err(Box::new(NoneString))
             }
         }
-        OutputType::Hashing => Err(Box::new(NoneString)),
+        OutputType::Hashing => Ok(Box::new(File::gen_open(
+            "w",
+            _path.map(|p| p.replace("%n", &_test_case_number.to_string())),
+            None,
+        )?)),
         OutputType::Template => Err(Box::new(NoneString)),
     }
 }

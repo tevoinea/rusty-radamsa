@@ -11,6 +11,7 @@ fn main() {
                 &rusty_radamsa::output::OutputType::TCPClient,
                 Some("127.0.0.1:34254".to_string()),
                 &None,
+                0
             )
             .unwrap();
         let _len = fd.gen_write(&[41u8; 20], 0);
